@@ -204,6 +204,6 @@
 
 	})(actions);
 
-	wsBoot("ws://localhost:1337/ws/jsonrpc", document.getElementById("app"));
-
+	// boot the application
+	wsBoot("ws://" + document.location.host + "/ws/jsonrpc", document.getElementById("app"));
 })();
