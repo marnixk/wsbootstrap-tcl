@@ -3,6 +3,8 @@
 	var actions = {};
 	var appView = null;
 	var templates = {};
+	var observables = {};
+	var observerHistory = [];
 
 	// ------------------------------------------------------------------------------------
 	// 		External facing methods
@@ -90,6 +92,41 @@
 		}	
 	}
 
+
+	/**
+	 * Start observing a certain information source and tie it to a scoped variable.
+	 * 
+	 */
+	window.observe = function(name, scope, varname) {
+		if (!observables[name]) {
+			observables[name] = [];
+		}
+
+		observables[name].push(function(val, name) {
+			scope[varname] = val;
+			scope.$apply();
+		});
+
+		// lets see if there is stuff we can pawn off to this new observer.
+		var untouchedHistory = [];
+		for (var idx = 0; idx < observerHistory.length; ++idx) {
+
+			// oo! we can rerun this on the newly registered observer.
+			if (observerHistory[idx].name == name) {
+
+				scope[varname] = observerHistory[idx].value;
+
+				// run apply in next scheduled break.
+				setTimeout(function() { scope.$apply(); }, 0);
+			}
+			else {
+				untouchedHistory.push(observerHistory[idx]);
+			}
+		}
+
+		observerHistory = untouchedHistory;
+	};
+
 	// ------------------------------------------------------------------------------------
 	//     Implementation of load resources action
 	// ------------------------------------------------------------------------------------
@@ -159,7 +196,21 @@
 			}
 
 		});
-		
+
+
+		registerAction("observable-update", function(data) {
+
+			if (observables[data.name]) {
+				for (var idx = 0; idx < observables[data.name].length; ++idx) {
+					var notifyMe = observables[data.name][idx];
+					notifyMe(data.value, data.name);
+				}
+			} else {
+				console.log("Storing in history");
+				observerHistory.push(data);
+			}
+
+		});
 
 		function loadStylesheet(url) {
 			var head = document.getElementsByTagName("head")[0];
