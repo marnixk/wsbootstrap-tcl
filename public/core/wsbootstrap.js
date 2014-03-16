@@ -5,6 +5,8 @@
 	var templates = {};
 	var observables = {};
 	var observerHistory = [];
+	var msgCallbackById = {};
+	var wsMsgId = 0;
 
 	// ------------------------------------------------------------------------------------
 	// 		External facing methods
@@ -25,9 +27,19 @@
 		actions[action].push(func);
 	};
 
-	window.sendMessage = function(action, payload) {
+	window.sendMessage = function(action, payload, callback) {
+		var thisMsgId = ++wsMsgId;
+
+		if (callback) {
+			msgCallbackById[thisMsgId] = {
+				id : thisMsgId,
+				func : callback
+			};
+		}
+
 		ws.send(
 			JSON.stringify({
+				id : thisMsgId,
 				action: action,
 				payload: payload
 			})
@@ -69,24 +81,43 @@
 			return;
 		}
 
+		// is this an error message?
 		if (data.status && data.status === "error") {
 			console.error("An error occured: " + data.error);
 			console.log(data);
 			return;
 		}
 
+		// is this a response message?
+		if (typeof(data['respond-to']) !== "undefined") {
+			var callbackDesc = msgCallbackById[data['respond-to']];
+			if (callbackDesc) {
+				callbackDesc.func(data);
+				delete msgCallbackById[data['respond-to']];
+			}
+			else {
+				console.error("Response lost as no callback was registered, application error?");
+				console.log(data);
+			}
+
+			return;
+		}
+
+		// should be an action message
 		if (!data.action) {
 			console.log("Has no action, cannot process, offending message below");
 			console.log(data)
 			return;
 		}
 
+		// action doesn't exist?
 		if (!actions[data.action]) {
 			console.log("No action registered for " + data.action + ", ignoring message.");
 			console.log(data);
 			return;
 		}
 
+		// call everything that is registered to handle this action
 		for (var idx = 0; idx < actions[data.action].length; ++idx) {
 			actions[data.action][idx](data.payload);
 		}	
@@ -179,23 +210,29 @@
 
 			// page to load?
 			if (data.page) {
-				if (templates[data.page]) {
-					
-					// replace content
-					var content = templates[data.page];
-					document.getElementById("app").innerHTML = content;
-					
-					// initialize.
-					if (jQuery) {
-					 	$("body").trigger("load-complete");
-					}
-				}
-				else {
-					console.error("No template to load for page called `" + data.page + "`")
-				}
+				loadPage(data.page);
+
 			}
 
 		});
+
+
+		window.loadPage = function(name) {
+			if (templates[name]) {
+				
+				// replace content
+				var content = templates[name];
+				document.getElementById("app").innerHTML = content;
+				
+				// initialize.
+				if (jQuery) {
+				 	$("body").trigger("load-complete");
+				}
+			}
+			else {
+				console.error("No template to load for page called `" + name + "`")
+			}
+		}
 
 
 		registerAction("observable-update", function(data) {
@@ -206,7 +243,6 @@
 					notifyMe(data.value, data.name);
 				}
 			} else {
-				console.log("Storing in history");
 				observerHistory.push(data);
 			}
 
