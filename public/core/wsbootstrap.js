@@ -12,6 +12,26 @@
 	// 		External facing methods
 	// ------------------------------------------------------------------------------------
 
+
+	window.loadPage = function(name) {
+		if (templates[name]) {
+			
+			// replace content
+			var content = templates[name];
+			document.getElementById("app").innerHTML = content;
+			
+			// initialize.
+			if (jQuery) {
+			 	$("body").trigger("load-complete");
+			}
+		}
+		else {
+			console.error("No template to load for page called `" + name + "`")
+		}
+	}
+
+
+
 	window.getTemplate = function(name) {
 		return templates[name];
 	};
@@ -62,6 +82,57 @@
 		ws.onclose = function() {};
 
 	}
+
+
+	// ------------------------------------------------------------------------------------
+	// 		Resource loading related functions
+	// ------------------------------------------------------------------------------------
+
+	function loadStylesheet(url) {
+		var head = document.getElementsByTagName("head")[0];
+		var link = document.createElement("link");
+		
+		link.type = "text/css";
+		link.rel = "stylesheet";
+		link.href = url;
+
+		head.appendChild(link);
+	}
+
+	/**
+	 * Load a javascript, after it's done loading, render another javascript
+	 * until the list of javascripts has been completely loaded.
+	 * 
+	 * @param  {String} url        	the url to render
+	 * @param  {array} list       	the list with all urls
+	 * @param  {integer} next_index the next index
+	 */
+	function loadJavascript(url, list, next_index) {
+		var script = document.createElement("script");
+		var body = document.getElementsByTagName("body")[0];
+
+		script.onload = function() {
+			if (next_index < list.length) {
+				setTimeout(function() { 
+					loadJavascript(list[next_index], list, next_index + 1);
+				}, 0);
+			}
+			else {
+				$("body").trigger("load-complete", []);
+				sendMessage("load-complete", {});
+			}
+		};
+
+		script.type = "text/javascript";
+		script.src = url;
+
+		body.appendChild(script);
+	}
+
+
+	// ------------------------------------------------------------------------------------
+	// 		Dispatch incoming messages
+	// ------------------------------------------------------------------------------------
 
 	/**
 	 * Dispatches messages to one or more actions registered on the address
@@ -126,7 +197,6 @@
 
 	/**
 	 * Start observing a certain information source and tie it to a scoped variable.
-	 * 
 	 */
 	window.observe = function(name, scope, varname) {
 		if (!observables[name]) {
@@ -162,7 +232,6 @@
 	//     Implementation of load resources action
 	// ------------------------------------------------------------------------------------
 
-	(function(actions, undefined) {
 
 		registerAction("script", function(data) {
 			eval("(function(undefined){" + data.content + "})()");
@@ -216,25 +285,6 @@
 
 		});
 
-
-		window.loadPage = function(name) {
-			if (templates[name]) {
-				
-				// replace content
-				var content = templates[name];
-				document.getElementById("app").innerHTML = content;
-				
-				// initialize.
-				if (jQuery) {
-				 	$("body").trigger("load-complete");
-				}
-			}
-			else {
-				console.error("No template to load for page called `" + name + "`")
-			}
-		}
-
-
 		registerAction("observable-update", function(data) {
 
 			if (observables[data.name]) {
@@ -248,48 +298,6 @@
 
 		});
 
-		function loadStylesheet(url) {
-			var head = document.getElementsByTagName("head")[0];
-			var link = document.createElement("link");
-			
-			link.type = "text/css";
-			link.rel = "stylesheet";
-			link.href = url;
-
-			head.appendChild(link);
-		}
-
-		/**
-		 * Load a javascript, after it's done loading, render another javascript
-		 * until the list of javascripts has been completely loaded.
-		 * 
-		 * @param  {String} url        	the url to render
-		 * @param  {array} list       	the list with all urls
-		 * @param  {integer} next_index the next index
-		 */
-		function loadJavascript(url, list, next_index) {
-			var script = document.createElement("script");
-			var body = document.getElementsByTagName("body")[0];
-
-			script.onload = function() {
-				if (next_index < list.length) {
-					setTimeout(function() { 
-						loadJavascript(list[next_index], list, next_index + 1);
-					}, 0);
-				}
-				else {
-					$("body").trigger("load-complete", []);
-					sendMessage("load-complete", {});
-				}
-			};
-
-			script.type = "text/javascript";
-			script.src = url;
-
-			body.appendChild(script);
-		}
-
-	})(actions);
 
 	// boot the application
 	wsBoot("ws://" + document.location.host + "/ws/jsonrpc", document.getElementById("app"));
