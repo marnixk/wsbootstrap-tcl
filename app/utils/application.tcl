@@ -1,5 +1,8 @@
 proc app'load-page {chan page} {
-	Websocket::send-message $chan [jsonrpc'message "load-page" [list page [j' $page]]]
+	set payload [create LoadPage {
+		page $page
+	}]
+	Websocket::send-message $chan [jsonrpc'message "load-page" $payload]
 }
 
 proc app'start {} {

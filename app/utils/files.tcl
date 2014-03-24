@@ -64,7 +64,7 @@ proc find-templates {base_dir {ext "html"}} {
 		}
 		close $tpl_f
 
-		set filemap($file_id) [j' $content]
+		set filemap($file_id) $content
 	}
 
 	return [array get filemap]

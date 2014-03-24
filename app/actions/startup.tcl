@@ -1,3 +1,4 @@
+
 #
 #   Send information about the resources that should be loaded when someone
 #   connects to this application bundle.
@@ -25,15 +26,15 @@ namespace eval Wsbootstrap::Startup::application-resource-bundle {
 			lappend scripts $script
 		}
 
-		#
-		#    Send a list of styles and javascripts to load before we can kick off properly!
-		#
-		Websocket::send-message $chan [jsonrpc'message "load-resources" [list \
-			styles 			[j'list $config(styles)] \
-			javascripts		[j'list $scripts] \
-			templates		[json::array templates] \
-			page			[j' $config(start-page)]
-		]]
+		set templatelist [array get templates]
+		set bundle [create ResourceBundle {
+			styles $config(styles)
+			javascripts $scripts
+			page $config(start-page)
+			templates $templatelist
+		}]
+
+		Websocket::send-message $chan [jsonrpc'message "load-resources" $bundle]
 
 	}
 
